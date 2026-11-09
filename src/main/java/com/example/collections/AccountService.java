@@ -8,6 +8,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.dao.DataIntegrityViolationException;
 import java.time.Instant;
 
 @Service
@@ -23,8 +24,11 @@ class AccountService implements ApplicationRunner {
         this.accounts=accounts; this.passwords=passwords; this.tokens=tokens; this.audit=audit;
     }
     @Override @Transactional public void run(ApplicationArguments args) {
-        if (adminPassword != null && !adminPassword.isBlank() && accounts.findByUsernameIgnoreCase(adminName).isEmpty()) {
-            if (adminPassword.length()<12) throw new IllegalStateException("BOOTSTRAP_ADMIN_PASSWORD must contain at least 12 characters");
+        if(accounts.findByUsernameIgnoreCase(adminName).isEmpty()) {
+            if(adminPassword==null||adminPassword.isBlank())
+                throw new IllegalStateException("BOOTSTRAP_ADMIN_PASSWORD is required to seed the first administrator");
+            if(adminPassword.length()<12)
+                throw new IllegalStateException("BOOTSTRAP_ADMIN_PASSWORD must contain at least 12 characters");
             Account admin=new Account(); admin.username=adminName.trim(); admin.displayName=adminDisplayName;
             admin.passwordHash=passwords.encode(adminPassword); admin.role="ADMIN"; admin.mustChangePassword=true;
             accounts.save(admin);
@@ -51,15 +55,37 @@ class AccountService implements ApplicationRunner {
         a.passwordHash=passwords.encode(request.newPassword()); a.mustChangePassword=false; accounts.save(a);
     }
     @Transactional public Account create(AccountRequest request, Long actorId) {
-        if (accounts.findByUsernameIgnoreCase(request.username().trim()).isPresent())
+        return createAccount(request.username(),request.displayName(),request.role(),request.password(),true,actorId);
+    }
+    @Transactional public Account register(RegisterRequest request) {
+        return createAccount(request.username(),request.displayName(),"OFFICER",request.password(),false,null);
+    }
+    private Account createAccount(String username,String displayName,String role,String password,boolean forceChange,Long actorId) {
+        String normalizedUsername=username.trim();
+        if (accounts.findByUsernameIgnoreCase(normalizedUsername).isPresent())
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Username already exists");
-        Account a=new Account(); a.username=request.username().trim(); a.displayName=request.displayName().trim();
-        a.role=request.role(); a.passwordHash=passwords.encode(request.password()); a.mustChangePassword=true;
-        a=accounts.save(a); audit.record(actorId,"CREATE","ACCOUNT",a.id.toString(),"Created "+a.username); return a;
+        Account account=new Account(); account.username=normalizedUsername; account.displayName=displayName.trim();
+        account.role=role; account.passwordHash=passwords.encode(password); account.mustChangePassword=forceChange;
+        try {
+            account=accounts.saveAndFlush(account);
+        } catch(DataIntegrityViolationException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Username already exists");
+        }
+        if(actorId!=null) audit.record(actorId,"CREATE","ACCOUNT",account.id.toString(),"Created "+account.username);
+        return account;
     }
     @Transactional public void setEnabled(long id,boolean enabled,long actorId) {
         Account account=accounts.findById(id).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Account not found"));
         account.enabled=enabled; accounts.save(account);
         audit.record(actorId,"UPDATE","ACCOUNT",Long.toString(id),"Set enabled="+enabled);
+    }
+    @Transactional public void resetPassword(long id,String password,long actorId) {
+        Account account=accounts.findById(id).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Account not found"));
+        account.passwordHash=passwords.encode(password);
+        account.mustChangePassword=true;
+        account.failedAttempts=0;
+        account.lockedUntil=null;
+        accounts.save(account);
+        audit.record(actorId,"RESET_PASSWORD","ACCOUNT",Long.toString(id),"Reset password for "+account.username);
     }
 }

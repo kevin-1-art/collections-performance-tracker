@@ -1,7 +1,7 @@
 package com.example.collections;
 
 import jakarta.persistence.*;
-import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.Instant;
 
 @Entity @Table(name="accounts")
@@ -23,13 +23,10 @@ class Account {
     @UniqueConstraint(name="uq_entries_prn", columnNames="prn")})
 class CollectionEntry {
     @Id @GeneratedValue(strategy=GenerationType.IDENTITY) Long id;
-    @Column(name="client_name", nullable=false, length=160) String clientName;
     @Column(name="tracking_number", nullable=false, length=80) String trackingNumber;
     @Column(nullable=false, length=80) String prn;
-    @Column(nullable=false, precision=14, scale=2) BigDecimal amount;
-    @Column(name="collected_at", nullable=false) Instant collectedAt;
-    @Column(name="receipt_number", length=80) String receiptNumber;
-    @Column(length=1000) String notes;
+    @Column(name="collection_date", nullable=false) LocalDate date;
+    @Column(name="amount_ugx",nullable=false) Long amount;
     @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="created_by", nullable=false) Account createdBy;
     @Column(name="created_at", nullable=false) Instant createdAt=Instant.now();
 }

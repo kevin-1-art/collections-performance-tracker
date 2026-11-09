@@ -1,67 +1,177 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#183b56"><title>Collections | Performance Tracker</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#183b56">
+  <title>Collections Performance Tracker</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <main id="login-screen" class="login-shell">
     <section class="login-card">
-      <div class="brand-mark">CP</div><p class="eyebrow">COLLECTIONS OPERATIONS</p>
-      <h1>Performance tracker</h1><p class="muted">Sign in to manage daily collections.</p>
+      <div class="brand-mark">CP</div>
+      <p class="eyebrow">COLLECTIONS OPERATIONS · UGANDA</p>
+      <h1 id="auth-title">Sign in</h1>
+      <p class="muted">Track collection performance, records and reports.</p>
       <form id="login-form" class="stack">
-        <label>Username<input name="username" autocomplete="username" required></label>
-        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
-        <button class="primary" type="submit">Sign in</button><p id="login-error" class="error" role="alert"></p>
+        <label>Username<input name="username" autocomplete="username" required maxlength="80"></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="128"></label>
+        <label id="register-name-wrap" class="hidden">Display name<input name="displayName" maxlength="160"></label>
+        <button id="auth-submit" class="primary" type="submit">Sign in</button>
+        <p id="login-error" class="error" role="alert"></p>
       </form>
+      <button id="register-toggle" class="text-button auth-toggle" type="button">Create an officer account</button>
     </section>
   </main>
   <section id="app-screen" class="app-shell hidden">
     <aside class="sidebar">
       <div class="brand"><div class="brand-mark">CP</div><div><strong>Collections</strong><small>Performance tracker</small></div></div>
-      <nav><a href="#overview" class="active">Overview</a><a href="#records">Collection records</a><a href="#manage" id="manage-link" class="hidden">Accounts &amp; imports</a></nav>
-      <div class="side-bottom"><span class="avatar" id="avatar"></span><span id="identity"></span><button id="logout" class="text-button">Sign out</button></div>
+      <nav aria-label="Main navigation">
+        <a href="#entry-panel" data-tab="entry-panel" class="tab-link active">New collection</a>
+        <a href="#records-panel" data-tab="records-panel" class="tab-link">Records</a>
+        <a href="#weekly-panel" data-tab="weekly-panel" class="tab-link">Weekly report</a>
+        <a href="#custom-panel" data-tab="custom-panel" class="tab-link">Custom report</a>
+        <a href="#officers-panel" data-tab="officers-panel" id="officers-link" class="tab-link hidden">Officers</a>
+      </nav>
+      <div class="side-bottom">
+        <span class="avatar" id="avatar"></span>
+        <span id="identity"></span>
+        <button id="logout" class="text-button" type="button">Sign out</button>
+      </div>
     </aside>
     <main class="content">
-      <header class="topbar"><div><p class="eyebrow">COLLECTIONS OPERATIONS</p><h1>Performance overview</h1></div><div class="period-controls">
-        <select id="period"><option value="week">This week · Fri–Thu</option><option value="day">Today · Kampala</option><option value="custom">Custom dates</option></select>
-        <input id="from-date" type="date" class="hidden"><input id="to-date" type="date" class="hidden"><button id="apply-period" class="secondary hidden">Apply</button>
-      </div></header>
-      <div id="forced-change" class="notice hidden"><strong>Change your temporary password.</strong><span>Choose at least 12 characters before continuing.</span>
-        <form id="password-form" class="inline-form"><input name="newPassword" type="password" minlength="12" maxlength="128" placeholder="New password" required><button class="primary">Update password</button></form></div>
+      <header class="topbar">
+        <div><p class="eyebrow">COLLECTIONS OPERATIONS</p><h1>Performance tracker</h1></div>
+        <div class="top-actions">
+          <label class="officer-filter hidden" id="officer-filter-wrap">Officer
+            <select id="officer-filter"><option value="">All officers</option></select>
+          </label>
+          <button id="theme-toggle" class="secondary" type="button" aria-label="Toggle dark mode">Dark mode</button>
+        </div>
+      </header>
+      <div id="forced-change" class="notice hidden">
+        <div><strong>Change your temporary password.</strong><span>Choose at least 12 characters before continuing.</span></div>
+        <form id="password-form" class="inline-form">
+          <input name="newPassword" type="password" minlength="12" maxlength="128" placeholder="New password" required>
+          <button class="primary">Update password</button>
+        </form>
+      </div>
       <div id="workspace">
-        <section id="overview" class="stats">
-          <article class="stat-card"><span>Records in period</span><strong id="record-count">0</strong><small id="period-label">This week</small></article>
-          <article class="stat-card"><span>Total collected</span><strong id="record-total">UGX 0</strong><small>All amounts in Ugandan shillings</small></article>
-          <article class="stat-card"><span>Your access</span><strong id="role-label">Officer</strong><small id="name-label"></small></article>
-        </section>
-        <div class="toolbar"><div><h2>Recent collections</h2><p class="muted">Search and review saved entries.</p></div><div class="actions">
-          <input id="search" type="search" placeholder="Search name, tracking or PRN"><button id="csv-export" class="secondary">Export CSV</button><button id="xlsx-export" class="secondary">Export XLSX</button><button id="python-report" class="secondary">ReportLab PDF</button><button id="print-report" class="secondary">Print / PDF</button></div></div>
-        <section id="records" class="table-wrap"><table><thead><tr><th>Client</th><th>Tracking / PRN</th><th>Collected</th><th>Amount</th><th>Officer</th><th></th></tr></thead><tbody id="records-body"></tbody></table>
-          <div class="pagination"><span id="page-info"></span><div><button id="prev-page" class="secondary">Previous</button><button id="next-page" class="secondary">Next</button></div></div>
-        </section>
-        <section class="panel"><div class="panel-heading"><div><h2>Add collection</h2><p class="muted">Tracking number and PRN must be globally unique.</p></div></div>
-          <form id="entry-form" class="entry-grid">
-            <label>Client name<input name="clientName" maxlength="160" required></label>
-            <label>Tracking number<input name="trackingNumber" maxlength="80" required></label>
-            <label>PRN<input name="prn" maxlength="80" required></label>
-            <label>Amount (UGX)<input name="amount" type="number" min="0.01" step="0.01" required></label>
-            <label>Collected date &amp; time<input name="collectedAt" type="datetime-local" required></label>
-            <label>Receipt number <span class="muted">(optional)</span><input name="receiptNumber" maxlength="80"></label>
-            <label class="wide">Notes <span class="muted">(optional)</span><input name="notes" maxlength="1000"></label>
-            <div class="wide form-bottom"><p id="entry-message" role="status"></p><button class="primary">Save collection</button></div>
+        <section id="entry-panel" class="tab-panel panel">
+          <div class="panel-heading"><div><h2 id="entry-heading">Record a collection</h2><p class="muted">All amounts are whole Ugandan shillings. Tracking numbers and PRNs are unique across all officers.</p></div></div>
+          <form id="entry-form" class="entry-grid" novalidate>
+            <label>Date
+              <input name="date" type="date" required>
+              <span class="field-error" data-error="date" role="alert"></span>
+            </label>
+            <label>Tracking number
+              <input name="trackingNumber" autocomplete="off" maxlength="12" placeholder="G240712-2665" required>
+              <span class="field-error" data-error="trackingNumber" role="alert"></span>
+            </label>
+            <label>PRN
+              <input name="prn" inputmode="numeric" autocomplete="off" maxlength="13" placeholder="2270005999848" required>
+              <span class="field-error" data-error="prn" role="alert"></span>
+            </label>
+            <label>Amount (UGX)
+              <input name="amount" inputmode="numeric" autocomplete="off" placeholder="1,250,000" required>
+              <span class="field-error" data-error="amount" role="alert"></span>
+            </label>
+            <div id="entry-officer-wrap" class="hidden">
+              <label>Record for officer<select name="officerId" id="entry-officer"></select></label>
+            </div>
+            <div class="form-bottom wide"><p id="entry-message" role="status"></p><div class="actions"><button id="cancel-edit" class="secondary hidden" type="button">Cancel edit</button><button id="save-entry" class="primary" type="submit">Save collection</button></div></div>
           </form>
         </section>
-        <section id="import-panel" class="panel"><div class="panel-heading"><div><h2>Import collections</h2><p class="muted">CSV, XLSX or XLS · up to 300 rows · 10 MB maximum.</p></div></div>
-          <form id="import-form" class="stack"><input name="file" type="file" accept=".csv,.xlsx,.xls" required><button class="secondary">Import file</button><div id="import-result" role="status"></div></form>
+
+        <section class="stats" aria-label="Collection summaries">
+          <article class="stat-card daily-card">
+            <div class="stat-heading"><span>Daily total</span><input id="daily-date" type="date" aria-label="Choose daily summary date"></div>
+            <strong id="daily-total">UGX 0</strong><small><span id="daily-count">0</span> records</small>
+          </article>
+          <article class="stat-card"><span>Current week · Friday–Thursday</span><strong id="weekly-total">UGX 0</strong><small><span id="weekly-count">0</span> records · <span id="week-range"></span></small></article>
+          <article class="stat-card"><span>Current month</span><strong id="monthly-total">UGX 0</strong><small><span id="monthly-count">0</span> records · <span id="month-range"></span></small></article>
         </section>
-        <section id="manage" class="panel hidden"><div class="panel-heading"><div><h2>Account administration</h2><p class="muted">Create officers and administrators and manage account access.</p></div></div>
-          <div class="manage-grid"><form id="account-form" class="stack"><h3>Create account</h3><label>Username<input name="username" maxlength="80" required></label><label>Display name<input name="displayName" maxlength="160" required></label><label>Role<select name="role"><option>OFFICER</option><option>ADMIN</option></select></label><label>Temporary password<input name="password" type="password" minlength="12" required></label><button class="primary">Create account</button><p id="account-message" role="status"></p></form></div>
+        <div id="month-banner" class="notice month-notice hidden">
+          <strong>Month-end reminder</strong><span>Generate your monthly collection report for a complete month summary.</span>
+          <button class="secondary" type="button" data-open-tab="custom-panel">Open custom report</button>
+        </div>
+
+        <section id="records-panel" class="tab-panel panel hidden">
+          <div class="panel-heading"><div><h2>Collection records</h2><p class="muted">Search and filter the records you’re authorized to see.</p></div></div>
+          <div class="filter-row">
+            <label>Search<input id="search" type="search" placeholder="Tracking number or PRN"></label>
+            <label>From<input id="records-from" type="date"></label>
+            <label>To<input id="records-to" type="date"></label>
+            <button id="clear-record-filters" class="secondary" type="button">Clear filters</button>
+            <button id="csv-export" class="secondary" type="button">Export CSV</button>
+            <button id="xlsx-export" class="secondary" type="button">Export Excel</button>
+          </div>
+          <p class="running-total">Filtered total: <strong id="filtered-total">UGX 0</strong></p>
+          <div class="table-wrap">
+            <table><thead><tr><th>Date</th><th>Tracking number</th><th>PRN</th><th>Amount</th><th class="officer-column">Officer</th><th>Action</th></tr></thead><tbody id="records-body"></tbody></table>
+            <div class="pagination"><span id="page-info"></span><div><button id="prev-page" class="secondary" type="button">Previous</button><button id="next-page" class="secondary" type="button">Next</button></div></div>
+          </div>
+          <div class="import-card">
+            <h3>Import collections</h3>
+            <p class="muted">CSV, XLSX or XLS · up to 300 rows · 10 MB maximum.</p>
+            <form id="import-form" class="stack">
+              <label id="import-officer-wrap" class="hidden">Officer<select id="import-officer" name="officerId"></select></label>
+              <label>CSV or Excel file<input name="file" type="file" accept=".csv,.xlsx,.xls" required></label>
+              <div class="actions"><button class="secondary">Import file</button><a href="/api/imports/template" id="template-link">Download Excel template</a></div>
+              <div id="import-result" role="status"></div>
+            </form>
+          </div>
+        </section>
+
+        <section id="weekly-panel" class="tab-panel panel hidden">
+          <div class="panel-heading"><div><h2>Weekly report</h2><p id="weekly-period" class="muted"></p></div></div>
+          <p id="weekly-availability" class="muted"></p>
+          <div class="actions">
+            <button id="weekly-pdf" class="primary" type="button">Download Weekly Report (PDF)</button>
+            <button id="weekly-python-pdf" class="secondary" type="button">Download ReportLab PDF</button>
+          </div>
+          <button class="text-button report-link" type="button" data-open-tab="custom-panel">Generate for a custom period</button>
+          <div class="breakdown-grid">
+            <div><h3>Daily collections · current week</h3><div id="week-breakdown"></div></div>
+            <div><h3>Daily collections · current month</h3><div id="month-breakdown"></div></div>
+          </div>
+          <p id="weekly-message" class="muted" role="status"></p>
+        </section>
+
+        <section id="custom-panel" class="tab-panel panel hidden">
+          <div class="panel-heading"><div><h2>Monthly / custom report</h2><p class="muted">Choose an inclusive date range for the report.</p></div></div>
+          <div class="filter-row">
+            <label>From<input id="report-from" type="date"></label>
+            <label>To<input id="report-to" type="date"></label>
+            <button id="this-month" class="secondary" type="button">This month</button>
+            <button id="last-month" class="secondary" type="button">Last month</button>
+            <button id="generate-custom" class="primary" type="button">Generate PDF Report</button>
+            <button id="custom-python-pdf" class="secondary" type="button">Generate ReportLab PDF</button>
+          </div>
+          <p id="custom-message" class="muted" role="status"></p>
+        </section>
+
+        <section id="officers-panel" class="tab-panel panel hidden">
+          <div class="panel-heading"><div><h2>Officers &amp; imports</h2><p class="muted">Manage accounts and import on behalf of an officer.</p></div></div>
+          <div class="admin-grid">
+            <form id="account-form" class="stack">
+              <h3>Create account</h3>
+              <label>Username<input name="username" required maxlength="80"></label>
+              <label>Display name<input name="displayName" required maxlength="160"></label>
+              <label>Role<select name="role"><option>OFFICER</option><option>ADMIN</option></select></label>
+              <label>Temporary password<input name="password" type="password" minlength="12" maxlength="128" required></label>
+              <button class="primary">Create account</button><p id="account-message" role="status"></p>
+            </form>
+          </div>
           <h3>Accounts</h3><div id="accounts-list" class="account-list"></div>
         </section>
       </div>
     </main>
   </section>
-  <div id="toast" class="toast hidden" role="status"></div><script src="/app.js" defer></script>
-</body></html>
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" defer></script>
+  <script src="/app.js" defer></script>
+</body>
+</html>

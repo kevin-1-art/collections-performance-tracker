@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: import-service/requirements.txt
+      - name: Test Java backend
+        run: mvn --batch-mode test
+      - name: Install Python service dependencies
+        run: python -m pip install -r import-service/requirements.txt
+      - name: Test Python import and report service
+        working-directory: import-service
+        run: python -m pytest -q

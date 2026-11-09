@@ -1,25 +1,32 @@
 # Collections Performance Tracker
 
-A small, self-hosted collection-recording system for an operations team. The Spring Boot application serves the responsive browser UI and secured REST API. A separate FastAPI service validates CSV/XLS/XLSX imports and can create detailed PDF reports. PostgreSQL is the Docker Compose default; SQLite is supported for a lightweight single-instance setup.
+A responsive collection-entry and reporting application for Ugandan collection officers. The Java 17+ Spring Boot service provides the web UI, REST API, authentication and persistent storage. A private Python 3.11+ FastAPI service validates CSV/XLS/XLSX imports and generates ReportLab PDFs. PostgreSQL is the Docker Compose database; SQLite is available for local, single-instance development.
 
 ## Requirements
 
-- Docker Engine with Docker Compose v2 (recommended), or Java 17+, Maven 3.9+, and Python 3.11+ for local development.
-- Do not use the example passwords or expose the development database to an untrusted network.
+- Docker Engine and Docker Compose v2 (recommended), or Java 17+, Maven 3.9+, and Python 3.11+ for local development.
+- Do not use example passwords or expose a development database to an untrusted network.
 
-## Configure and run with Docker
+## Install, configure and run
+
+### Docker Compose (recommended)
 
 1. Copy `.env.example` to `.env`.
-2. Set `DB_PASSWORD`, `JWT_SECRET` (at least 32 random characters), and a unique `BOOTSTRAP_ADMIN_PASSWORD` (at least 12 characters). The temporary admin password is required at first startup; the admin must change it at first sign-in.
-3. Start the stack with `docker compose up --build -d`.
-4. Open [http://localhost:8080](http://localhost:8080), sign in using the configured bootstrap username/password, and set a new password.
-5. API documentation is available at [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html), with the OpenAPI JSON at `/v3/api-docs`.
+2. Set `DB_PASSWORD`, `JWT_SECRET` (at least 32 random characters), and a unique `BOOTSTRAP_ADMIN_PASSWORD` (at least 12 characters). The bootstrap administrator must change this temporary password at first sign-in.
+3. Start all three services:
 
-The database and import service are not published to the host. Persistent PostgreSQL data is kept in the `postgres-data` volume. Use `docker compose logs -f app` to inspect startup and migration problems.
+   ```powershell
+   docker compose up --build -d
+   ```
 
-## Local development
+4. Open [http://localhost:8080](http://localhost:8080), sign in with the configured bootstrap credentials, and change the password.
+5. View the REST API documentation at [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) and the OpenAPI definition at `/v3/api-docs`.
 
-Start a PostgreSQL 16 instance and set the variables in `.env`, or configure an SQLite database:
+The PostgreSQL database and import/report service are only exposed on the internal Compose network. Database files persist in the `postgres-data` volume. Use `docker compose logs -f app` to inspect startup and migration errors.
+
+### Local development
+
+Start PostgreSQL 16, configure the environment below, and create a temporary bootstrap password and JWT secret. For SQLite instead of PostgreSQL:
 
 ```powershell
 $env:DB_URL = "jdbc:sqlite:./data/collections.db"
@@ -27,82 +34,86 @@ $env:DB_USER = ""
 $env:DB_PASSWORD = ""
 $env:FLYWAY_LOCATIONS = "classpath:db/migration/sqlite"
 $env:SPRING_JPA_DATABASE_PLATFORM = "org.hibernate.community.dialect.SQLiteDialect"
-$env:JWT_SECRET = "replace-with-a-random-secret-at-least-32-characters"
-$env:BOOTSTRAP_ADMIN_PASSWORD = "temporary-unique-password"
+$env:JWT_SECRET = "<random secret of at least 32 characters>"
+$env:BOOTSTRAP_ADMIN_PASSWORD = "<temporary password of at least 12 characters>"
 New-Item -ItemType Directory -Force data | Out-Null
 ```
 
-In one terminal, run the import/report service:
+In one terminal:
 
 ```powershell
 cd import-service
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn app:app --reload --port 8000
+python -m pip install -r requirements.txt
+python -m uvicorn app:app --reload --port 8000
 ```
 
-In another terminal, run the backend from the project root:
+In another terminal, from the project root:
 
 ```powershell
 mvn spring-boot:run
 ```
 
-The app listens on port 8080. The backend applies versioned Flyway migrations at startup. Set `IMPORT_SERVICE_URL` if the Python service is hosted elsewhere.
+The web app listens on port 8080. Flyway applies migrations at startup. Set `IMPORT_SERVICE_URL` if the private Python service is hosted at a different address.
 
-## Features and behavior
+## Features
 
-- Username/password login, BCrypt (work factor 12), signed 8-hour JWTs, roles `ADMIN` and `OFFICER`, and password-change-required temporary credentials.
-- Five consecutive incorrect password attempts lock an account for 15 minutes. A successful login resets the counter.
-- Collection records require a client name, globally unique tracking number and PRN, positive amount (two decimal places), and collection timestamp. Database unique constraints are the final race-safe duplicate guard; conflicts return HTTP 409 with existing record details where available.
-- All period boundaries use `Africa/Kampala`. The weekly period starts Friday at 00:00 and ends at the following Friday 00:00 (Friday through Thursday); the daily period is the current Kampala calendar day. Custom date ranges include both selected dates.
-- Admins can see and manage all records and accounts. Officers can see and delete only their own entries. Deletions record the actor and entry identifiers in the audit table.
-- Record search, pagination (maximum 100 per page), CSV/XLSX exports, browser print-to-PDF, and server-generated PDF reports.
-- CSV, XLSX, and legacy XLS imports accept at most 300 data rows and 10 MB per upload. Rows are validated independently; import responses include line/row numbers and skip reasons. Tracking number and PRN conflicts are also skipped with a reason.
+- Sign-in and officer self-registration; accounts use BCrypt password hashes and signed JWTs.
+- Roles are `ADMIN` and `OFFICER`. Officers can access and delete their own records; administrators can view and manage all records and select an officer for records, reports, and imports.
+- The default admin is seeded from environment variables on first startup and must change the temporary password. Five failed password attempts lock an account for 15 minutes. Admins can create/deactivate accounts and reset temporary passwords.
+- Required entry fields: Kampala calendar date, tracking number (`G` + six digits + hyphen + four digits), 13-digit PRN, and positive whole UGX amount. Lowercase `g` is normalized to uppercase. Date, tracking number, PRN, and amount are checked in the UI and API.
+- Tracking numbers and PRNs are globally unique, including case-insensitive tracking number matches. Database unique indexes prevent simultaneous duplicate saves; conflicts identify the original record date and officer. Deleting a record logs the actor and timestamp and releases both identifiers.
+- Dashboard cards show daily (date-selectable), current Friday–Thursday weekly, and current-calendar-month totals and record counts. Daily breakdowns are available for the current week and month. Admin officer filters apply to all dashboard figures.
+- Searchable, server-paginated records support date ranges and a running filtered total; exports are available as CSV and XLSX.
+- Browser-generated jsPDF reports include daily totals, a bar chart, full transactions, totals, averages, and best/lowest days. Weekly downloads are enabled on Thursdays. Custom date ranges include Friday–Thursday subtotals. A separate ReportLab PDF endpoint is available through the Java API and Python service.
+- CSV, XLSX, and legacy XLS imports accept header-matched columns or positional rows without headers, up to 300 data rows and 10 MB per file. Dates accept Excel date cells, `dd/mm/yyyy`, or `yyyy-mm-dd`. PRNs are read as text; invalid rows, duplicates in the file, and database duplicates are reported by row number. Admins can import on behalf of an officer.
+- Responsive mobile/desktop layout, light/dark mode, and a downloadable Excel import template.
+- All date boundaries use `Africa/Kampala`; currency is UGX with no fractional amounts.
 
-## REST API
+## REST endpoints
 
-Swagger/OpenAPI is generated from the Spring controllers at `/swagger-ui.html` and `/v3/api-docs`. Authenticate with `POST /api/auth/login`, then pass `Authorization: Bearer <token>` on secured endpoints.
+All `/api` endpoints except account registration and login require a bearer token. Sign in with `POST /api/auth/login` and send `Authorization: Bearer <token>` on secured requests. Springdoc provides the complete generated schemas at `/swagger-ui.html` and `/v3/api-docs`.
 
 | Method | Path | Access | Description |
 |---|---|---|---|
-| POST | `/api/auth/login` | Public | Sign in; returns JWT and forced-change flag |
-| GET | `/api/auth/me` | Signed in | Current account |
-| POST | `/api/auth/password` | Signed in | Set a new password |
-| POST | `/api/accounts` | Admin | Create a forced-change account |
-| GET | `/api/accounts` | Admin | List accounts |
-| PATCH | `/api/accounts/{id}/enabled` | Admin | Enable or disable account |
-| POST | `/api/entries` | Admin/officer | Create collection |
-| GET | `/api/entries` | Admin/officer | Search and page scoped records; optional `q`, `tracking`, `prn`, `from`, and exclusive `to` filters |
-| DELETE | `/api/entries/{id}` | Admin/owner | Delete an entry and audit the action |
-| GET | `/api/summary?period=day|week|custom` | Admin/officer | Count and sum; custom also requires `from=YYYY-MM-DD&to=YYYY-MM-DD` |
-| GET | `/api/entries/export?period=...` | Admin/officer | Period CSV export |
-| GET | `/api/entries/export.xlsx?period=...` | Admin/officer | Period Excel export |
-| GET | `/api/reports/pdf?period=...` | Admin/officer | Generate a scoped ReportLab PDF via the Python service |
-| POST | `/api/imports` | Admin/officer | Upload a CSV/XLS/XLSX file as multipart `file` |
+| POST | `/api/auth/register` | Public | Create an officer account |
+| POST | `/api/auth/login` | Public | Sign in and receive a JWT |
+| GET | `/api/auth/me` | Signed in | Current user and forced-password-change status |
+| POST | `/api/auth/password` | Signed in | Change password |
+| GET | `/api/dashboard?date=YYYY-MM-DD&officerId=...` | Signed in | Daily, weekly, monthly totals and breakdowns |
+| POST | `/api/entries?officerId=...` | Signed in | Create a collection (admins may choose an active officer) |
+| PUT | `/api/entries/{id}` | Admin/owner | Update a collection record; edits are audited |
+| GET | `/api/entries?page=0&size=25&q=...&from=...&to=...&officerId=...` | Signed in | Scoped search and date-range pagination |
+| GET | `/api/entries/totals?q=...&from=...&to=...&officerId=...` | Signed in | Amount total for all matching records |
+| DELETE | `/api/entries/{id}` | Admin/owner | Delete a record and create an audit event |
+| GET | `/api/summary?period=day\|week\|month\|custom&from=...&to=...` | Signed in | Period total and record count |
+| GET | `/api/entries/export?period=...` | Signed in | CSV export |
+| GET | `/api/entries/export.xlsx?period=...` | Signed in | Excel export |
+| GET | `/api/imports/template` | Signed in | Download the Excel import template |
+| POST | `/api/imports?officerId=...` | Signed in | Import multipart `file`; admins may select an officer |
+| GET | `/api/reports/pdf?period=week` | Signed in | Create a scoped ReportLab PDF through FastAPI |
+| GET/POST | `/api/accounts` | Admin | List accounts / create an account |
+| PATCH | `/api/accounts/{id}/enabled` | Admin | Activate or deactivate an account |
+| POST | `/api/accounts/{id}/password` | Admin | Set a temporary password and require a change |
 | GET | `/health` | Public | Liveness check |
 
-The import/report service has its own generated OpenAPI page at `/docs` when accessed directly. `POST /imports/validate` parses and validates an uploaded file. `POST /reports/pdf` accepts a JSON report payload and returns a PDF. In Compose, this service is private to the application network.
+The import/report service has its own OpenAPI UI at `/docs` when accessed directly. `POST /imports/validate` parses and validates an uploaded file. `POST /reports/pdf` accepts the report payload from the Java API. In Compose, this service is private to the application network.
 
 ## Tests
 
-Run backend tests with `mvn test`. Run import/report tests with:
+Run both test suites:
 
 ```powershell
-cd import-service
-python -m pip install -r requirements.txt
-python -m pytest
+mvn test
+python -m pip install -r import-service/requirements.txt
+python -m pytest -q import-service
 ```
 
-The SQLite option is intended for local, single-instance use; use PostgreSQL for concurrent users and production deployments. Configure TLS at a trusted reverse proxy before exposing the app publicly. Back up the database volume and protect the bootstrap/JWT secrets.
+GitHub Actions runs the Java tests on Java 17 and the import/report tests on Python 3.11 for pushes and pull requests.
 
-## Import template
+## Database migrations and production
 
-Required column headers (case-insensitive aliases are accepted): `clientName`, `trackingNumber`, `prn`, `amount`, `collectedAt`. Optional: `receiptNumber`, `notes`. Example:
+Flyway migrations are versioned separately for PostgreSQL and SQLite. Migration V2 converts existing collection timestamps to Kampala calendar dates, preserves legacy fields, and introduces whole-shilling amounts rounded from any historical fractional values. SQLite is intended for local, single-instance use; use PostgreSQL for concurrent users and production deployments. Configure TLS through a trusted host/reverse proxy, keep environment secrets private, and back up the persistent database.
 
-```csv
-clientName,trackingNumber,prn,amount,collectedAt,receiptNumber,notes
-Example Client,TRK-001,PRN-001,25000.00,2025-01-03T09:30:00,RCPT-001,Window collection
-```
-
-Naive spreadsheet timestamps are interpreted as Kampala local time. ISO timestamps with a timezone are preserved and normalized to UTC.
+The `.env.example` file contains placeholders only. Never commit a populated `.env` file or reuse the sample passwords.
