@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: collections
+      POSTGRES_USER: collections
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set a strong DB_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U collections -d collections"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  import-service:
+    build: ./import-service
+    expose: ["8000"]
+    restart: unless-stopped
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+      import-service:
+        condition: service_started
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/collections
+      DB_USER: collections
+      DB_PASSWORD: ${DB_PASSWORD:?Set a strong DB_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET to at least 32 random characters}
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-admin}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set a temporary admin password of at least 12 characters}
+      BOOTSTRAP_ADMIN_DISPLAY_NAME: ${BOOTSTRAP_ADMIN_DISPLAY_NAME:-System Administrator}
+      IMPORT_SERVICE_URL: http://import-service:8000
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    restart: unless-stopped
+volumes:
+  postgres-data:
