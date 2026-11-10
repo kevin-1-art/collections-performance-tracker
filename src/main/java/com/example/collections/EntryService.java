@@ -81,7 +81,7 @@ class EntryService {
         throw new ResponseStatusException(HttpStatus.CONFLICT,duplicateMessage(entry,field));
     }
 
-    private static String duplicateMessage(CollectionEntry entry,String field) {
+    static String duplicateMessage(CollectionEntry entry,String field) {
         return "Duplicate "+field+"; first recorded on "+entry.date+" by "+entry.createdBy.displayName+
                 " ("+entry.trackingNumber+", PRN "+entry.prn+")";
     }
