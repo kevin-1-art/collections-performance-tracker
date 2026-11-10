@@ -56,6 +56,17 @@ mvn spring-boot:run
 
 The web app listens on port 8080. Flyway applies PostgreSQL migrations at startup; SQLite uses the built-in versioned migration runner. Set `IMPORT_SERVICE_URL` if the private Python service is hosted at a different address.
 
+### Deploy to Render
+
+The root `render.yaml` Blueprint defines the public Java web service, private import/report service, and PostgreSQL database. The web service connects to PostgreSQL over Render's private network, and public officer registration is enabled.
+
+1. Push this repository to GitHub and connect the repository in the [Render Dashboard](https://dashboard.render.com).
+2. Select **New > Blueprint**, choose the repository and `master` branch, review the services and their plans/prices, then deploy the Blueprint. The database and non-free services may incur recurring charges; confirm the displayed costs before deploying.
+3. During the initial Blueprint setup, provide a unique bootstrap admin password of at least 12 characters. Render generates the JWT secret; neither secret is stored in this repository.
+4. After the deploy succeeds, open the web service's `onrender.com` URL to sign in as the bootstrap admin or create an officer account. Change the bootstrap password at first sign-in.
+
+Do not use a temporary/expiring database for real collection records. Configure database backups and restrict account creation if public registration is no longer appropriate.
+
 ## Features
 
 - Sign-in and officer self-registration; accounts use BCrypt password hashes and signed JWTs.
