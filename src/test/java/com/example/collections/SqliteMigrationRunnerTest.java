@@ -19,7 +19,7 @@ class SqliteMigrationRunnerTest {
 
         try(var connection=DriverManager.getConnection(jdbcUrl);
             var statement=connection.createStatement();
-            var results=statement.executeQuery("SELECT count(*) FROM sqlite_schema_history")) {
+            var results=statement.executeQuery("SELECT count(*) FROM tracker_schema_history")) {
             results.next();
             assertEquals(2,results.getInt(1));
         }

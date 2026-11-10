@@ -23,7 +23,7 @@ final class SqliteMigrationRunner {
             try(Statement statement=connection.createStatement()) {
                 statement.execute("PRAGMA foreign_keys=ON");
                 statement.execute("""
-                        CREATE TABLE IF NOT EXISTS sqlite_schema_history (
+                        CREATE TABLE IF NOT EXISTS tracker_schema_history (
                           version INTEGER PRIMARY KEY,
                           description VARCHAR(200) NOT NULL,
                           installed_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -71,7 +71,7 @@ final class SqliteMigrationRunner {
 
     private static boolean applied(Connection connection,int version) throws SQLException {
         try(PreparedStatement statement=connection.prepareStatement(
-                "SELECT 1 FROM sqlite_schema_history WHERE version=?")) {
+                "SELECT 1 FROM tracker_schema_history WHERE version=?")) {
             statement.setInt(1,version);
             try(ResultSet results=statement.executeQuery()) {
                 return results.next();
@@ -81,7 +81,7 @@ final class SqliteMigrationRunner {
 
     private static void markApplied(Connection connection,Migration migration) throws SQLException {
         try(PreparedStatement history=connection.prepareStatement(
-                "INSERT INTO sqlite_schema_history(version,description) VALUES(?,?)")) {
+                "INSERT INTO tracker_schema_history(version,description) VALUES(?,?)")) {
             history.setInt(1,migration.version());
             history.setString(2,migration.description());
             history.executeUpdate();
