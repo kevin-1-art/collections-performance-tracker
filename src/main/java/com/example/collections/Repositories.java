@@ -14,6 +14,7 @@ import java.util.Optional;
 
 interface AccountRepository extends JpaRepository<Account, Long> {
     Optional<Account> findByUsernameIgnoreCase(String username);
+    long countByRoleAndEnabledTrue(String role);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from Account a where lower(a.username)=lower(:username)")
     Optional<Account> findForLogin(@Param("username") String username);

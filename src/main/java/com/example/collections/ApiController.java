@@ -31,10 +31,12 @@ class ApiController {
     private final EntryService entryService;
     private final EntryRepository entries;
     private final RestClient importClient;
+    private final TokenService tokens;
 
     ApiController(AccountService accountService,AccountRepository accounts,EntryService entryService,
-                  EntryRepository entries,@Value("${app.import-service-url}") String importUrl) {
+                  EntryRepository entries,TokenService tokens,@Value("${app.import-service-url}") String importUrl) {
         this.accountService=accountService; this.accounts=accounts; this.entryService=entryService; this.entries=entries;
+        this.tokens=tokens;
         this.importClient=RestClient.builder().baseUrl(importUrl).build();
     }
 
@@ -66,6 +68,15 @@ class ApiController {
     @GetMapping("/accounts")
     List<Map<String,Object>> listAccounts() {
         return accounts.findAll(Sort.by("username")).stream().map(this::accountView).toList();
+    }
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/accounts/{id}")
+    Map<String,Object> updateAccount(Authentication auth,@PathVariable long id,@Valid @RequestBody AccountUpdateRequest request) {
+        Account actor=current(auth);
+        Account updated=accountService.update(id,request,actor.id);
+        Map<String,Object> result=new LinkedHashMap<>(accountView(updated));
+        if(actor.id.equals(updated.id)) result.put("token",tokens.issue(updated));
+        return result;
     }
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/accounts/{id}/enabled")

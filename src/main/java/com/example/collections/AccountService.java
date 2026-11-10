@@ -57,6 +57,28 @@ class AccountService implements ApplicationRunner {
     @Transactional public Account create(AccountRequest request, Long actorId) {
         return createAccount(request.username(),request.displayName(),request.role(),request.password(),true,actorId);
     }
+    @Transactional public Account update(long id,AccountUpdateRequest request,Long actorId) {
+        Account account=accounts.findById(id)
+                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Account not found"));
+        String username=request.username().trim();
+        if(!account.username.equalsIgnoreCase(username)&&accounts.findByUsernameIgnoreCase(username).isPresent())
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Username already exists");
+        if(account.id.equals(actorId)&&!"ADMIN".equals(request.role()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Cannot change your own administrator role");
+        if(account.enabled&&"ADMIN".equals(account.role)&&!"ADMIN".equals(request.role())
+                &&accounts.countByRoleAndEnabledTrue("ADMIN")<=1)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"At least one active administrator must remain");
+        account.username=username;
+        account.displayName=request.displayName().trim();
+        account.role=request.role();
+        try {
+            account=accounts.saveAndFlush(account);
+        } catch(DataIntegrityViolationException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Username already exists");
+        }
+        audit.record(actorId,"UPDATE","ACCOUNT",Long.toString(id),"Updated account identity or role");
+        return account;
+    }
     @Transactional public Account register(RegisterRequest request) {
         return createAccount(request.username(),request.displayName(),"OFFICER",request.password(),false,null);
     }
@@ -76,6 +98,9 @@ class AccountService implements ApplicationRunner {
     }
     @Transactional public void setEnabled(long id,boolean enabled,long actorId) {
         Account account=accounts.findById(id).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Account not found"));
+        if(!enabled&&account.enabled&&"ADMIN".equals(account.role)
+                &&accounts.countByRoleAndEnabledTrue("ADMIN")<=1)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"At least one active administrator must remain");
         account.enabled=enabled; accounts.save(account);
         audit.record(actorId,"UPDATE","ACCOUNT",Long.toString(id),"Set enabled="+enabled);
     }

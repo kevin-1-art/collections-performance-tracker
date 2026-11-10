@@ -8,6 +8,7 @@ const state = {
   totalPages: 0,
   entries: [],
   editingId: null,
+  editingAccountId: null,
   register: false,
 };
 const $ = selector => document.querySelector(selector);
@@ -432,7 +433,8 @@ async function loadAccounts() {
     const row = document.createElement('div');
     row.className = 'account-row';
     row.innerHTML = `<div><strong>${escapeHTML(account.displayName)}</strong><span class="subtext">${escapeHTML(account.username)} · ${escapeHTML(account.role)}${account.mustChangePassword ? ' · password change required' : ''}</span></div>` +
-      `<div class="account-actions"><button class="secondary" type="button" data-reset="${account.id}">Reset password</button>` +
+      `<div class="account-actions"><button class="secondary" type="button" data-edit-account="${account.id}">Edit details</button>` +
+      `<button class="secondary" type="button" data-reset="${account.id}">Reset password</button>` +
       `<button class="secondary" type="button" data-account="${account.id}" data-enabled="${!account.enabled}">${account.enabled ? 'Deactivate' : 'Activate'}</button></div>`;
     list.append(row);
   }
@@ -646,8 +648,21 @@ $('#account-form').addEventListener('submit', async event => {
 $('#accounts-list').addEventListener('click', async event => {
   const accountId = event.target.dataset.account;
   const resetId = event.target.dataset.reset;
+  const editId = event.target.dataset.editAccount;
   try {
-    if (accountId) {
+    if (editId) {
+      const { data } = await api('/api/accounts');
+      const account = data.find(item => String(item.id) === editId);
+      if (!account) throw new Error('Account not found. Refresh the account list and try again.');
+      state.editingAccountId = account.id;
+      const form = $('#edit-account-form');
+      form.elements.username.value = account.username;
+      form.elements.displayName.value = account.displayName;
+      form.elements.role.value = account.role;
+      form.elements.role.disabled = account.id === state.user.id;
+      $('#edit-account-message').textContent = '';
+      $('#edit-account-dialog').showModal();
+    } else if (accountId) {
       const enabled = event.target.dataset.enabled === 'true';
       if (!enabled && !window.confirm('Deactivate this account?')) return;
       await api(`/api/accounts/${accountId}/enabled`, {
@@ -664,6 +679,36 @@ $('#accounts-list').addEventListener('click', async event => {
     await loadAccounts();
   } catch (error) {
     flash(error.message);
+  }
+});
+$('#cancel-account-edit').addEventListener('click', () => $('#edit-account-dialog').close());
+$('#edit-account-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const body = {
+    username: form.elements.username.value.trim(),
+    displayName: form.elements.displayName.value.trim(),
+    role: form.elements.role.value,
+  };
+  try {
+    const { data: updated } = await api(`/api/accounts/${state.editingAccountId}`, {
+      method: 'PATCH', body: JSON.stringify(body),
+    });
+    if (updated.token) {
+      state.token = updated.token;
+      sessionStorage.setItem('token', updated.token);
+    }
+    if (updated.id === state.user.id) {
+      state.user = { ...state.user, ...updated };
+      $('#identity').textContent = updated.displayName;
+      $('#avatar').textContent = updated.displayName.slice(0, 1).toUpperCase();
+    }
+    $('#edit-account-dialog').close();
+    await loadAccounts();
+    await refreshDashboardAndRecords();
+    flash('Account details updated.');
+  } catch (error) {
+    $('#edit-account-message').textContent = error.message;
   }
 });
 $('#import-form').addEventListener('submit', async event => {

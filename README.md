@@ -32,7 +32,6 @@ Start PostgreSQL 16, configure the environment below, and create a temporary boo
 $env:DB_URL = "jdbc:sqlite:./data/collections.db"
 $env:DB_USER = ""
 $env:DB_PASSWORD = ""
-$env:FLYWAY_LOCATIONS = "classpath:db/migration/sqlite"
 $env:SPRING_JPA_DATABASE_PLATFORM = "org.hibernate.community.dialect.SQLiteDialect"
 $env:JWT_SECRET = "<random secret of at least 32 characters>"
 $env:BOOTSTRAP_ADMIN_PASSWORD = "<temporary password of at least 12 characters>"
@@ -55,13 +54,13 @@ In another terminal, from the project root:
 mvn spring-boot:run
 ```
 
-The web app listens on port 8080. Flyway applies migrations at startup. Set `IMPORT_SERVICE_URL` if the private Python service is hosted at a different address.
+The web app listens on port 8080. Flyway applies PostgreSQL migrations at startup; SQLite uses the built-in versioned migration runner. Set `IMPORT_SERVICE_URL` if the private Python service is hosted at a different address.
 
 ## Features
 
 - Sign-in and officer self-registration; accounts use BCrypt password hashes and signed JWTs.
 - Roles are `ADMIN` and `OFFICER`. Officers can access and delete their own records; administrators can view and manage all records and select an officer for records, reports, and imports.
-- The default admin is seeded from environment variables on first startup and must change the temporary password. Five failed password attempts lock an account for 15 minutes. Admins can create/deactivate accounts and reset temporary passwords.
+- The default admin is seeded from environment variables on first startup and must change the temporary password. Five failed password attempts lock an account for 15 minutes. Admins can create accounts, edit usernames/display names/roles, activate or deactivate accounts, and reset temporary passwords. At least one active administrator must remain; administrators cannot demote themselves.
 - Required entry fields: Kampala calendar date, tracking number (`G` + six digits + hyphen + four digits), 13-digit PRN, and positive whole UGX amount. Lowercase `g` is normalized to uppercase. Date, tracking number, PRN, and amount are checked in the UI and API.
 - Tracking numbers and PRNs are globally unique, including case-insensitive tracking number matches. Database unique indexes prevent simultaneous duplicate saves; conflicts identify the original record date and officer. Deleting a record logs the actor and timestamp and releases both identifiers.
 - Dashboard cards show daily (date-selectable), current Friday–Thursday weekly, and current-calendar-month totals and record counts. Daily breakdowns are available for the current week and month. Admin officer filters apply to all dashboard figures.
@@ -94,6 +93,7 @@ All `/api` endpoints except account registration and login require a bearer toke
 | POST | `/api/imports?officerId=...` | Signed in | Import multipart `file`; admins may select an officer |
 | GET | `/api/reports/pdf?period=week` | Signed in | Create a scoped ReportLab PDF through FastAPI |
 | GET/POST | `/api/accounts` | Admin | List accounts / create an account |
+| PATCH | `/api/accounts/{id}` | Admin | Update username, display name, or role |
 | PATCH | `/api/accounts/{id}/enabled` | Admin | Activate or deactivate an account |
 | POST | `/api/accounts/{id}/password` | Admin | Set a temporary password and require a change |
 | GET | `/health` | Public | Liveness check |
@@ -114,6 +114,6 @@ GitHub Actions runs the Java tests on Java 17 and the import/report tests on Pyt
 
 ## Database migrations and production
 
-Flyway migrations are versioned separately for PostgreSQL and SQLite. Migration V2 converts existing collection timestamps to Kampala calendar dates, preserves legacy fields, and introduces whole-shilling amounts rounded from any historical fractional values. SQLite is intended for local, single-instance use; use PostgreSQL for concurrent users and production deployments. Configure TLS through a trusted host/reverse proxy, keep environment secrets private, and back up the persistent database.
+PostgreSQL migrations are managed by Flyway. SQLite is intended for local, single-instance development and uses a small versioned SQL migration runner because Flyway does not publish a SQLite database module. Migration V2 converts existing collection timestamps to Kampala calendar dates, preserves legacy fields, and introduces whole-shilling amounts rounded from any historical fractional values. Use PostgreSQL for concurrent users and production deployments. Configure TLS through a trusted host/reverse proxy, keep environment secrets private, and back up the persistent database.
 
 The `.env.example` file contains placeholders only. Never commit a populated `.env` file or reuse the sample passwords.

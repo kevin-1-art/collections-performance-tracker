@@ -169,6 +169,17 @@
       </div>
     </main>
   </section>
+  <dialog id="edit-account-dialog" class="edit-account-dialog">
+    <form id="edit-account-form" class="stack">
+      <h2>Edit account details</h2>
+      <label>Username<input name="username" required maxlength="80" autocomplete="off"></label>
+      <label>Display name<input name="displayName" required maxlength="160" autocomplete="name"></label>
+      <label>Role<select name="role"><option>OFFICER</option><option>ADMIN</option></select></label>
+      <p class="muted">Reset passwords separately with the Reset password action.</p>
+      <div class="actions"><button id="cancel-account-edit" class="secondary" type="button">Cancel</button><button class="primary" type="submit">Save changes</button></div>
+      <p id="edit-account-message" class="error" role="status"></p>
+    </form>
+  </dialog>
   <div id="toast" class="toast hidden" role="status"></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" defer></script>

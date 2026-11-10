@@ -9,6 +9,8 @@ record RegisterRequest(@NotBlank @Size(max=80) String username, @NotBlank @Size(
                        @NotBlank @Size(min=12,max=128) String password) {}
 record PasswordRequest(@NotBlank @Size(min=12,max=128) String newPassword) {}
 record ResetPasswordRequest(@NotBlank @Size(min=12,max=128) String temporaryPassword) {}
+record AccountUpdateRequest(@NotBlank @Size(max=80) String username, @NotBlank @Size(max=160) String displayName,
+                            @NotBlank @Pattern(regexp="ADMIN|OFFICER") String role) {}
 record LoginResponse(String token, String username, String displayName, String role, boolean mustChangePassword) {}
 record AccountRequest(@NotBlank @Size(max=80) String username, @NotBlank @Size(max=160) String displayName,
                       @NotBlank @Pattern(regexp="ADMIN|OFFICER") String role,
